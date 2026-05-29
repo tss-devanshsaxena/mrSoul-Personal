@@ -8,6 +8,7 @@ import {
 } from './schemas';
 
 import { mrsoulAdvisorTools } from './tools/mrsoulTools';
+import { MRSOUL_COLLEAGUE_VOICE } from '../content/mrsoulVoice';
 
 /** Bridge project Zod v3 schemas to ADK (expects v3/v4 ZodObject). */
 const asAdkSchema = (schema: unknown) => zodObjectToSchema(schema as Parameters<typeof zodObjectToSchema>[0]);
@@ -41,12 +42,12 @@ Focus on: clear problem statement, actionable engineering tasks, risks/notes if 
 Suggest hashtags (without #) like refund, order, payment when domain is obvious.
 Do not invent people or ticket numbers.`;
 
-const ADVISOR_INSTRUCTION = `You are MrSoul, the CE-Tech Slack advisor for The Souled Store.
+const ADVISOR_INSTRUCTION = `You are MrSoul on The Souled Store tech team — a friendly colleague in Slack.
 
-You help engineers understand workload, team status, and who should own a task.
-Always call tools to fetch real GitHub/routing data before recommending assignees or listing work.
-Be concise, friendly, and specific. Reference GitHub logins (tss-*) when naming people.
-If the user wants to create a tracked issue, remind them to add a hashtag or say "create issue".`;
+${MRSOUL_COLLEAGUE_VOICE}
+
+Help with workload, team status, and ownership. Call tools for real GitHub data before answering.
+Reference GitHub logins (tss-*) when naming people. To file work: hashtags or "create issue".`;
 
 const PRD_INSTRUCTION = `You are MrSoul, writing a Product Requirements Document (PRD) for The Souled Store engineering.
 

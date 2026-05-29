@@ -162,6 +162,19 @@ const envSchema = z.object({
     if (typeof v === 'string') return ['1', 'true', 'yes', 'on'].includes(v.toLowerCase());
     return v;
   }, z.boolean().default(true)),
+
+  /** Daily Slack messages to store owners (dashboard + cron) */
+  STORE_OUTREACH_ENABLED: z.preprocess((v) => {
+    if (typeof v === 'string') return ['1', 'true', 'yes', 'on'].includes(v.toLowerCase());
+    return v;
+  }, z.boolean().default(true)),
+  STORE_OUTREACH_TIMEZONE: z.string().default('Asia/Kolkata'),
+
+  /** Admin portal login (sidebar dashboard at /admin) */
+  DASHBOARD_USERNAME: z.string().default('admin'),
+  DASHBOARD_PASSWORD: z.string().optional(),
+  DASHBOARD_SESSION_SECRET: z.string().optional(),
+  DASHBOARD_SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24 * 30).default(168),
 });
 
 let parsedEnv: z.infer<typeof envSchema>;
@@ -304,6 +317,21 @@ export const config = {
 
   accessControl: {
     enabled: parsedEnv.ACCESS_CONTROL_ENABLED,
+  },
+
+  storeOutreach: {
+    enabled: parsedEnv.STORE_OUTREACH_ENABLED,
+    defaultTimezone: parsedEnv.STORE_OUTREACH_TIMEZONE,
+  },
+
+  dashboard: {
+    username: parsedEnv.DASHBOARD_USERNAME,
+    password: parsedEnv.DASHBOARD_PASSWORD?.trim() || undefined,
+    sessionSecret:
+      parsedEnv.DASHBOARD_SESSION_SECRET?.trim() ||
+      parsedEnv.DASHBOARD_PASSWORD?.trim() ||
+      'dev-only-change-dashboard-session-secret',
+    sessionTtlHours: parsedEnv.DASHBOARD_SESSION_TTL_HOURS,
   },
 
   isProd: parsedEnv.NODE_ENV === 'production',

@@ -6,7 +6,7 @@ import {
 } from '../content/ticketFlowBlocks';
 import { ticketFlowService } from '../services/ticketFlow';
 import { slackService } from '../services/slack';
-import { enforceSlackAccess } from '../services/slackAccess';
+import { enforceSlackAccess, requireSlackWriteAccess } from '../services/slackAccess';
 import { config } from '../config';
 import { createLogger } from '../utils/logger';
 
@@ -31,6 +31,15 @@ export function registerCreateTicketHandlers(app: App): void {
           response_type: 'ephemeral',
           text: gate.access.reason ?? 'Access denied.',
         });
+        return;
+      }
+      if (
+        !(await requireSlackWriteAccess({
+          channelId: command.channel_id,
+          slackUserId: command.user_id,
+          access: gate.access,
+        }))
+      ) {
         return;
       }
     }
@@ -138,6 +147,16 @@ export function registerCreateTicketHandlers(app: App): void {
         await slackService.postEphemeral(channelId, userId, gate.access.reason ?? 'Access denied.');
         return;
       }
+      if (
+        !(await requireSlackWriteAccess({
+          channelId,
+          slackUserId: userId,
+          access: gate.access,
+        }))
+      ) {
+        await ack();
+        return;
+      }
     }
 
     await ack();
@@ -170,6 +189,15 @@ export function registerCreateTicketHandlers(app: App): void {
         allowAdminCommands: false,
       });
       if (!gate.proceed) return;
+      if (
+        !(await requireSlackWriteAccess({
+          channelId,
+          slackUserId: body.user.id,
+          access: gate.access,
+        }))
+      ) {
+        return;
+      }
     }
     const sessionId = (action as { value?: string }).value;
     if (!sessionId) return;
@@ -187,6 +215,15 @@ export function registerCreateTicketHandlers(app: App): void {
         allowAdminCommands: false,
       });
       if (!gate.proceed) return;
+      if (
+        !(await requireSlackWriteAccess({
+          channelId,
+          slackUserId: body.user.id,
+          access: gate.access,
+        }))
+      ) {
+        return;
+      }
     }
     const sessionId = (action as { value?: string }).value;
     if (!sessionId) return;

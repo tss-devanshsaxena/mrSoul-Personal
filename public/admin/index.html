@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+</head>
+<body>
+  <div id="page-content">
+    <div id="alert" class="alert"></div>
+    <div class="stat-grid" id="stats"></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Outreach schedule</div>
+        <p id="scheduleSummary" class="hint">Loading…</p>
+        <a href="/admin/schedule.html" class="btn btn-secondary">Edit schedule</a>
+      </div>
+      <div class="card">
+        <div class="card-title">Quick actions</div>
+        <div class="btn-row">
+          <a href="/admin/stores.html" class="btn btn-secondary">Manage stores</a>
+          <a href="/admin/upload.html" class="btn btn-secondary">Upload CSV</a>
+          <a href="/admin/outreach.html" class="btn btn-primary">Send messages</a>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Platform</div>
+      <div id="platformMeta" class="hint"></div>
+    </div>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    (async () => {
+      if (!await Admin.initShell('dashboard', 'Dashboard', 'Overview of store outreach and platform status')) return;
+      const alert = document.getElementById('alert');
+      try {
+        const { data } = await Admin.api('/overview');
+        document.getElementById('stats').innerHTML =
+          '<div class="stat-card accent"><label>Total stores</label><strong>' + data.stores.total + '</strong></div>' +
+          '<div class="stat-card"><label>Active</label><strong>' + data.stores.active + '</strong></div>' +
+          '<div class="stat-card"><label>Send errors</label><strong>' + data.stores.withErrors + '</strong></div>' +
+          '<div class="stat-card"><label>Cron</label><strong style="font-size:16px">' + (data.outreach.enabled ? 'On' : 'Off') + '</strong></div>';
+
+        const o = data.outreach;
+        document.getElementById('scheduleSummary').textContent =
+          o.nextRunHint + ' · ' + (o.sendLimitHint || '') +
+          (o.lastRunSummary ? ' · Last run: ' + o.lastRunSummary : '');
+
+        const p = data.platform;
+        document.getElementById('platformMeta').innerHTML =
+          'Environment: <strong>' + Admin.escapeHtml(p.env) + '</strong><br>' +
+          'GitHub: <strong>' + Admin.escapeHtml(p.githubRepo) + '</strong><br>' +
+          'Uptime: <strong>' + p.uptimeSec + 's</strong><br>' +
+          'Store outreach: <strong>' + (p.storeOutreachEnabled ? 'enabled' : 'disabled') + '</strong>';
+      } catch (e) {
+        Admin.toast(alert, e.message, false);
+      }
+    })();
+  </script>
+</body>
+</html>

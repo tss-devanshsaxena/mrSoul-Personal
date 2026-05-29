@@ -15,6 +15,8 @@ import {
   webhookRouter,
 } from './routes';
 import { dashboardRouter } from './routes/dashboard';
+import { adminPortalRouter } from './routes/adminPortal';
+import { storeOutreachRouter } from './routes/storeOutreach';
 
 const log = createLogger('app');
 
@@ -78,6 +80,8 @@ export function createExpressApp(): Application {
   // Public routes
   app.use('/', healthRouter);
   app.use('/', dashboardRouter);
+  app.use('/', adminPortalRouter);
+  app.use('/', storeOutreachRouter);
   app.use('/webhooks', webhookRouter);
 
   // Protected API routes

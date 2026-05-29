@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Store owners — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+</head>
+<body>
+  <div id="page-content">
+    <div id="alert" class="alert"></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title" id="formTitle">Add store owner</div>
+        <input type="hidden" id="editMode" value="" />
+        <label class="field-label" for="storeId">Store ID</label>
+        <input id="storeId" type="text" placeholder="STR-001" />
+        <label class="field-label" for="storeLocation">Location</label>
+        <input id="storeLocation" type="text" placeholder="Mumbai — Bandra" />
+        <div class="row">
+          <div>
+            <label class="field-label" for="userName">Slack username <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input id="userName" type="text" placeholder="Auto from email if empty" />
+          </div>
+          <div>
+            <label class="field-label" for="name">Full name</label>
+            <input id="name" type="text" placeholder="Rahul Sharma" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label class="field-label" for="phone">Phone</label>
+            <input id="phone" type="text" />
+          </div>
+          <div>
+            <label class="field-label" for="email">Email</label>
+            <input id="email" type="email" placeholder="name@thesouledstore.com" />
+          </div>
+        </div>
+        <label class="check-row"><input type="checkbox" id="active" checked /> Active</label>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" id="saveBtn">Save</button>
+          <button type="button" class="btn btn-ghost" id="clearBtn">Clear</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Tips</div>
+        <p class="hint"><strong>Email is required</strong> — it must match their Slack profile email. MrSoul uses email only to find them and send DMs. Username is optional (for your records / message template).</p>
+        <p class="hint">Bulk add many stores via <a href="/admin/upload.html">Upload stores</a>.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">All store owners</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Location</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Last sent</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    (async () => {
+      if (!await Admin.initShell('stores', 'Store owners', 'Manage who receives daily Slack messages')) return;
+      const alert = document.getElementById('alert');
+
+      function clearForm() {
+        document.getElementById('editMode').value = '';
+        document.getElementById('formTitle').textContent = 'Add store owner';
+        document.getElementById('storeId').disabled = false;
+        ['storeId','storeLocation','userName','name','phone','email'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
+        document.getElementById('active').checked = true;
+      }
+
+      async function load() {
+        const { data } = await Admin.storeApi('/owners');
+        const tbody = document.getElementById('tableBody');
+        if (!data.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No stores yet</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.map(o => {
+          const last = o.lastOutreachDate ? Admin.escapeHtml(o.lastOutreachDate) : '—';
+          return '<tr>' +
+            '<td><code class="id">' + Admin.escapeHtml(o.storeId) + '</code></td>' +
+            '<td>' + Admin.escapeHtml(o.storeLocation) + '</td>' +
+            '<td><strong>' + Admin.escapeHtml(o.name) + '</strong><br><span style="font-size:12px">@' + Admin.escapeHtml(o.userName) + '</span></td>' +
+            '<td>' + Admin.escapeHtml(o.email) + '</td>' +
+            '<td>' + last + '</td>' +
+            '<td><span class="pill ' + (o.active ? 'on' : 'off') + '">' + (o.active ? 'Active' : 'Off') + '</span> ' +
+            '<button type="button" class="btn btn-secondary btn-sm" data-edit="' + Admin.escapeHtml(o.storeId) + '">Edit</button> ' +
+            '<button type="button" class="btn btn-secondary btn-sm" data-del="' + Admin.escapeHtml(o.storeId) + '">Delete</button></td></tr>';
+        }).join('');
+
+        tbody.querySelectorAll('[data-edit]').forEach(btn => {
+          btn.onclick = () => {
+            const o = data.find(x => x.storeId === btn.dataset.edit);
+            if (!o) return;
+            document.getElementById('editMode').value = o.storeId;
+            document.getElementById('formTitle').textContent = 'Edit store owner';
+            document.getElementById('storeId').value = o.storeId;
+            document.getElementById('storeId').disabled = true;
+            document.getElementById('storeLocation').value = o.storeLocation;
+            document.getElementById('userName').value = o.userName;
+            document.getElementById('name').value = o.name;
+            document.getElementById('phone').value = o.phone || '';
+            document.getElementById('email').value = o.email;
+            document.getElementById('active').checked = o.active;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
+        });
+        tbody.querySelectorAll('[data-del]').forEach(btn => {
+          btn.onclick = async () => {
+            if (!confirm('Delete ' + btn.dataset.del + '?')) return;
+            try {
+              await Admin.storeApi('/owners/' + encodeURIComponent(btn.dataset.del), { method: 'DELETE' });
+              Admin.toast(alert, 'Deleted', true);
+              await load();
+            } catch (e) { Admin.toast(alert, e.message, false); }
+          };
+        });
+      }
+
+      document.getElementById('clearBtn').onclick = clearForm;
+      document.getElementById('saveBtn').onclick = async () => {
+        const body = {
+          storeId: document.getElementById('storeId').value.trim(),
+          storeLocation: document.getElementById('storeLocation').value.trim(),
+          userName: document.getElementById('userName').value.trim(),
+          name: document.getElementById('name').value.trim(),
+          phone: document.getElementById('phone').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          active: document.getElementById('active').checked,
+        };
+        const editId = document.getElementById('editMode').value;
+        try {
+          if (editId) {
+            await Admin.storeApi('/owners/' + encodeURIComponent(editId), { method: 'PUT', body: JSON.stringify(body) });
+          } else {
+            await Admin.storeApi('/owners', { method: 'POST', body: JSON.stringify(body) });
+          }
+          Admin.toast(alert, 'Saved', true);
+          clearForm();
+          await load();
+        } catch (e) { Admin.toast(alert, e.message, false); }
+      };
+
+      try { await load(); } catch (e) { Admin.toast(alert, e.message, false); }
+    })();
+  </script>
+</body>
+</html>

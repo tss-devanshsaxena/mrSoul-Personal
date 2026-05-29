@@ -22,7 +22,7 @@
     "slack:clear": "ts-node src/scripts/clear-slack-channel.ts",
     "logs:clear": "ts-node src/scripts/clear-logs.ts",
     "adk:web": "npx @google/adk-devtools web src/agents/mrsoulAgents.ts",
-    "dashboard": "echo Open http://localhost:3000/dashboard while npm run dev is running"
+    "dashboard": "echo Open http://localhost:3000/admin while npm run dev is running"
   },
   "dependencies": {
     "@google/adk": "^1.1.0",

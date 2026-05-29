@@ -16,7 +16,8 @@ Add these **Bot Token Scopes** and reinstall the app:
 | `pins:write` | Pin guidelines at top |
 | `channels:manage` | Set channel topic (public channels) |
 | `commands` | `/mrsoul` and `/create-ticket` slash commands |
-| `users:read.email` | **Required** for email-based access control |
+| `users:read.email` | **Required** for access control + **store outreach** (lookup user by email) |
+| `im:write` | **Required** for store outreach (open DM + send daily messages) |
 | `files:write` | Upload PRD `.docx` to Slack thread |
 | `views:write` | `/create-ticket` modal form |
 | `groups:read` + `groups:history` | Private channels like `#mrsoul` (cleanup script) |
@@ -131,3 +132,16 @@ npm run slack:clear -- --all --yes        # all convos + DMs (needs im:read, im:
 **Cannot delete via API:** gray “set the channel description/topic” system lines. **Fix:** archive `#mrsoul`, create a new channel, update `SLACK_MONITORED_CHANNELS` with the new channel ID, then `npm run slack:guidelines` once.
 
 **Human DM history** (Rahul, Akriti, etc.): Slack UI only — open each DM → ⋮ → **Delete conversation**.
+
+## 7. Store outreach (admin portal DMs)
+
+If **Send messages** fails with `missing_scope`, add these bot scopes and **Reinstall to Workspace**:
+
+| Scope | Why |
+|-------|-----|
+| `users:read.email` | Find Slack user from store owner email |
+| `im:write` | Open DM channel (`conversations.open`) |
+| `chat:write` | Post the message |
+| `pins:write` | Pin message in DM (optional; turn off in schedule if you skip this scope) |
+
+After reinstall, copy the new **Bot User OAuth Token** into `SLACK_BOT_TOKEN` on Railway / `.env` and restart the app.

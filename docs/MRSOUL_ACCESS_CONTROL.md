@@ -8,8 +8,25 @@ Only people on the **allowlist** can use MrSoul. Access is tied to the **email o
 |-------|------|----------------|--------------|--------------|
 | devansh.saxena@thesouledstore.com | **Super Admin** | Yes | Yes (any role) | Yes (`revoke access`) |
 | rahul.jaisheel@thesouledstore.com | **Admin** | Yes | Yes (`member` / `admin` only) | No |
-| jaynam.mehta@thesouledstore.com | **Member** | Yes | No | No |
-| saif.khan@thesouledstore.com | **Member** | Yes | No | No |
+| jaynam.mehta@thesouledstore.com | **Member** | Yes (read/ask only) | No | No |
+| saif.khan@thesouledstore.com | **Member** | Yes (read/ask only) | No | No |
+
+## What each role can do in Slack
+
+| Capability | Member | Admin | Super Admin |
+|------------|--------|-------|-------------|
+| Ask workload / team status (`what is Akriti working on?`) | Yes | Yes | Yes |
+| Create GitHub issues (hashtags, `create issue`) | No | Yes | Yes |
+| `/create-ticket`, PRDs, approve ticket flow | No | Yes | Yes |
+| “Who should own this?” / assign suggestions | No | Yes | Yes |
+| Grant access | No | Yes | Yes |
+| Revoke access | No | No | Yes |
+
+Members who try to create issues or tickets get a short ephemeral explanation in Slack.
+
+## Admin portal (web)
+
+**Admin → Slack bot access** (`/admin/access.html`): grant roles by email, list users, remove access.
 
 ## Slack app requirement
 

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Send messages — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+</head>
+<body>
+  <div id="page-content">
+    <div id="alert" class="alert"></div>
+    <div class="card">
+      <div class="card-title">Run outreach now</div>
+      <p class="hint" id="runHint">
+        Sends the configured message to every <strong>active</strong> store owner via Slack DM (matched by email).
+      </p>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="runBtn">Run now</button>
+        <button type="button" class="btn btn-secondary" id="forceBtn">Force send all</button>
+      </div>
+    </div>
+    <div class="card" id="resultCard" style="display:none">
+      <div class="card-title">Results</div>
+      <pre id="resultText" style="font-family:var(--mono);font-size:12px;white-space:pre-wrap;max-height:320px;overflow:auto"></pre>
+    </div>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    (async () => {
+      if (!await Admin.initShell('outreach', 'Send messages', 'Manually trigger daily Slack outreach')) return;
+      const alert = document.getElementById('alert');
+
+      try {
+        const { data: cfg } = await Admin.storeApi('/config');
+        document.getElementById('runHint').textContent =
+          cfg.oncePerDay !== false
+            ? 'Once-per-day is ON: Run now skips stores already messaged today. Use Force to send anyway. Change this under Message schedule.'
+            : 'Once-per-day is OFF: Run now messages every active store. Force still bypasses nothing extra.';
+      } catch (_) {}
+
+      async function run(force) {
+        try {
+          const { data } = await Admin.storeApi('/run-now', {
+            method: 'POST',
+            body: JSON.stringify({ force }),
+          });
+          document.getElementById('resultCard').style.display = 'block';
+          let text = 'Sent: ' + data.sent + ' · Skipped: ' + data.skipped + ' · Failed: ' + data.failed + '\n\n';
+          text += data.details.map(d => d.storeId + ': ' + d.status + (d.message ? ' — ' + d.message : '')).join('\n');
+          document.getElementById('resultText').textContent = text;
+          Admin.toast(alert, 'Run complete', data.failed === 0);
+        } catch (e) { Admin.toast(alert, e.message, false); }
+      }
+
+      document.getElementById('runBtn').onclick = () => run(false);
+      document.getElementById('forceBtn').onclick = () => {
+        if (confirm('Send to everyone again, even if already sent today?')) run(true);
+      };
+    })();
+  </script>
+</body>
+</html>

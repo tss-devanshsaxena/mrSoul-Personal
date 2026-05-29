@@ -12,7 +12,8 @@ export type ActivitySource =
   | 'github'
   | 'adk'
   | 'triage'
-  | 'routing';
+  | 'routing'
+  | 'store-outreach';
 
 export interface ActivityEvent {
   id: string;

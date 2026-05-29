@@ -305,3 +305,92 @@ export const MrSoulAccessUser: Model<MrSoulAccessUserDoc> = mongoose.model<MrSou
   'MrSoulAccessUser',
   MrSoulAccessUserSchema
 );
+
+// ============================================================
+// Store owners (daily Slack outreach)
+// ============================================================
+
+export interface StoreOwnerDoc extends Document {
+  storeId: string;
+  storeLocation: string;
+  userName: string;
+  name: string;
+  phone: string;
+  email: string;
+  active: boolean;
+  slackUserId?: string;
+  lastOutreachAt?: Date;
+  lastOutreachDate?: string;
+  lastOutreachError?: string;
+  lastMessageTs?: string;
+  lastChannelId?: string;
+}
+
+const StoreOwnerSchema = new Schema<StoreOwnerDoc>(
+  {
+    storeId: { type: String, required: true, unique: true, trim: true, index: true },
+    storeLocation: { type: String, required: true, trim: true },
+    userName: { type: String, trim: true, default: '' },
+    name: { type: String, required: true, trim: true },
+    phone: { type: String, default: '', trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true, index: true },
+    active: { type: Boolean, default: true, index: true },
+    slackUserId: { type: String },
+    lastOutreachAt: { type: Date },
+    lastOutreachDate: { type: String },
+    lastOutreachError: { type: String },
+    lastMessageTs: { type: String },
+    lastChannelId: { type: String },
+  },
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
+);
+
+StoreOwnerSchema.virtual('id').get(function (this: StoreOwnerDoc) {
+  return this._id.toHexString();
+});
+
+export const StoreOwner: Model<StoreOwnerDoc> = mongoose.model<StoreOwnerDoc>(
+  'StoreOwner',
+  StoreOwnerSchema
+);
+
+// ============================================================
+// Store outreach schedule (singleton)
+// ============================================================
+
+export interface StoreOutreachConfigDoc extends Document {
+  configKey: string;
+  enabled: boolean;
+  hour: number;
+  minute: number;
+  timezone: string;
+  messageTemplate: string;
+  pinMessages: boolean;
+  /** When true (default), each store gets at most one DM per calendar day. */
+  oncePerDay: boolean;
+  lastRunAt?: Date;
+  lastRunSummary?: string;
+}
+
+const StoreOutreachConfigSchema = new Schema<StoreOutreachConfigDoc>(
+  {
+    configKey: { type: String, required: true, unique: true, default: 'default' },
+    enabled: { type: Boolean, default: false },
+    hour: { type: Number, default: 9, min: 0, max: 23 },
+    minute: { type: Number, default: 0, min: 0, max: 59 },
+    timezone: { type: String, default: 'Asia/Kolkata' },
+    messageTemplate: {
+      type: String,
+      default:
+        'Good morning {{name}}! Daily check-in for store *{{storeLocation}}* ({{storeId}}). Reply here if you need anything from ops.',
+    },
+    pinMessages: { type: Boolean, default: true },
+    oncePerDay: { type: Boolean, default: true },
+    lastRunAt: { type: Date },
+    lastRunSummary: { type: String },
+  },
+  { timestamps: true }
+);
+
+export const StoreOutreachConfig: Model<StoreOutreachConfigDoc> =
+  mongoose.model<StoreOutreachConfigDoc>('StoreOutreachConfig', StoreOutreachConfigSchema);

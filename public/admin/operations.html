@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live operations — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+  <style>
+    .ops-frame {
+      width: 100%;
+      height: calc(100vh - 140px);
+      min-height: 500px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #0d1117;
+    }
+  </style>
+</head>
+<body>
+  <div id="page-content">
+    <div class="card">
+      <div class="card-title">Slack live operations</div>
+      <p class="hint">Real-time issue automation activity from MrSoul. Opens in the panel below or in a new tab.</p>
+      <div class="btn-row">
+        <a href="/dashboard" target="_blank" class="btn btn-primary">Open in new tab</a>
+      </div>
+    </div>
+    <iframe class="ops-frame" src="/dashboard" title="MrSoul live operations"></iframe>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    Admin.initShell('operations', 'Live operations', 'Issue routing and Slack activity monitor');
+  </script>
+</body>
+</html>

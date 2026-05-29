@@ -25,6 +25,7 @@ import {
 import { buildPrdDocxBuffer, prdDocxFilename } from './prdDocx';
 import { formatPrdPlainText } from '../content/prdBlocks';
 import { TSS_GUIDELINES_DOC_HINT } from '../content/tssIssueGuidelines';
+import { MRSOUL_COLLEAGUE_VOICE } from '../content/mrsoulVoice';
 import { createLogger } from '../utils/logger';
 import type { IssueAssignment } from '../types';
 
@@ -39,7 +40,9 @@ const problemBriefSchema = z.object({
   suggestedScope: z.string().optional(),
 });
 
-const PROBLEM_SYSTEM = `You are MrSoul, a product/engineering assistant at The Souled Store (e-commerce).
+const PROBLEM_SYSTEM = `You are MrSoul on The Souled Store tech team.
+
+${MRSOUL_COLLEAGUE_VOICE}
 
 The user is starting a new tracked ticket. Rewrite their raw notes into a clear problem brief for stakeholder approval.
 
@@ -53,12 +56,16 @@ Return JSON only:
 
 Be specific to what they wrote. Do not invent systems or people not mentioned.`;
 
-const REVISE_SYSTEM = `You are MrSoul revising a ticket problem brief based on user feedback.
+const REVISE_SYSTEM = `You are MrSoul on the TSS tech team, revising a ticket problem brief from user feedback.
+
+${MRSOUL_COLLEAGUE_VOICE}
 
 Return JSON with the same shape: title, summary, keyQuestions (optional), suggestedScope (optional).
 Incorporate the feedback faithfully. Do not drop important details from the original.`;
 
-const PRD_SYSTEM = `You are MrSoul writing a Product Requirements Document (PRD) for The Souled Store engineering.
+const PRD_SYSTEM = `You are MrSoul writing a PRD for The Souled Store engineering.
+
+${MRSOUL_COLLEAGUE_VOICE}
 
 Return JSON matching this schema:
 {

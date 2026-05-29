@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upload stores — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+</head>
+<body>
+  <div id="page-content">
+    <div id="alert" class="alert"></div>
+    <div class="card">
+      <div class="card-title">Upload CSV</div>
+      <p class="hint">
+        Required: <code>storeId</code>, <code>storeLocation</code>, <code>name</code>, <code>email</code>. Optional: <code>userName</code>, <code>phone</code>, <code>active</code>.
+        Optional: <code>phone</code>, <code>active</code>.
+      </p>
+      <div class="upload-zone" id="dropZone">
+        <strong>Drop CSV file here</strong>
+        or click to browse
+        <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none" />
+      </div>
+      <label class="check-row">
+        <input type="checkbox" id="updateExisting" checked />
+        Update existing stores with same ID
+      </label>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="importBtn" disabled>Import stores</button>
+        <a href="#" id="sampleLink" class="btn btn-secondary">Download sample CSV</a>
+      </div>
+    </div>
+    <div class="card" id="previewCard" style="display:none">
+      <div class="card-title">Preview (<span id="rowCount">0</span> rows)</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Store ID</th>
+              <th>Location</th>
+              <th>Name</th>
+              <th>Email</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" id="resultCard" style="display:none">
+      <div class="card-title">Import result</div>
+      <pre id="resultText" style="font-family:var(--mono);font-size:12px;white-space:pre-wrap"></pre>
+    </div>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    (async () => {
+      if (!await Admin.initShell('upload', 'Upload stores', 'Import store owners from a CSV file')) return;
+      const alert = document.getElementById('alert');
+      let parsedRows = [];
+
+      const sample = 'storeId,storeLocation,userName,name,phone,email,active\nSTR-001,Mumbai Bandra,rahul.store,Rahul Sharma,+919876543210,rahul@thesouledstore.com,true\n';
+      document.getElementById('sampleLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        const blob = new Blob([sample], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'store-owners-sample.csv';
+        a.click();
+      });
+
+      function showPreview(rows) {
+        parsedRows = rows;
+        document.getElementById('importBtn').disabled = rows.length === 0;
+        document.getElementById('previewCard').style.display = rows.length ? 'block' : 'none';
+        document.getElementById('rowCount').textContent = rows.length;
+        document.getElementById('previewBody').innerHTML = rows.slice(0, 20).map(r =>
+          '<tr><td><code class="id">' + Admin.escapeHtml(r.storeId) + '</code></td>' +
+          '<td>' + Admin.escapeHtml(r.storeLocation) + '</td>' +
+          '<td>' + Admin.escapeHtml(r.name) + '</td>' +
+          '<td>' + Admin.escapeHtml(r.email) + '</td></tr>'
+        ).join('') + (rows.length > 20 ? '<tr><td colspan="4">… and ' + (rows.length - 20) + ' more</td></tr>' : '');
+      }
+
+      function handleFile(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const rows = Admin.parseCsv(reader.result);
+          if (!rows.length) {
+            Admin.toast(alert, 'No valid rows found in CSV', false);
+            return;
+          }
+          showPreview(rows);
+          Admin.toast(alert, 'Loaded ' + rows.length + ' rows', true);
+        };
+        reader.readAsText(file);
+      }
+
+      const drop = document.getElementById('dropZone');
+      const input = document.getElementById('fileInput');
+      drop.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+      drop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        drop.classList.remove('drag');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+      });
+
+      document.getElementById('importBtn').onclick = async () => {
+        try {
+          const { data } = await Admin.storeApi('/import', {
+            method: 'POST',
+            body: JSON.stringify({
+              rows: parsedRows,
+              updateExisting: document.getElementById('updateExisting').checked,
+            }),
+          });
+          document.getElementById('resultCard').style.display = 'block';
+          document.getElementById('resultText').textContent =
+            'Created: ' + data.created + '\nUpdated: ' + data.updated + '\nFailed: ' + data.failed.length +
+            (data.failed.length ? '\n\n' + data.failed.map(f => 'Row ' + f.row + ' (' + f.storeId + '): ' + f.error).join('\n') : '');
+          Admin.toast(alert, 'Import complete', data.failed.length === 0);
+        } catch (e) { Admin.toast(alert, e.message, false); }
+      };
+    })();
+  </script>
+</body>
+</html>

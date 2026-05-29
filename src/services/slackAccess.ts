@@ -3,7 +3,8 @@ import { accessControlService } from './accessControl';
 import { slackService } from './slack';
 import { parseAccessAdminCommand } from '../utils/accessCommands';
 import { stripSlackMarkup } from './intent';
-import type { AccessCheckResult } from '../types/access';
+import type { AccessCheckResult, AccessRole } from '../types/access';
+import { MEMBER_WRITE_DENIED_MESSAGE } from '../permissions/accessPermissions';
 
 export type SlackActor = {
   slackUserId: string;
@@ -118,4 +119,31 @@ export async function enforceSlackAccess(params: {
   }
 
   return { proceed: true, access };
+}
+
+/**
+ * Block *member* role from creating issues, PRDs, tickets, or assignments.
+ * Call after enforceSlackAccess when the action is a write.
+ */
+export async function requireSlackWriteAccess(params: {
+  channelId: string;
+  slackUserId: string;
+  threadTs?: string;
+  access: AccessCheckResult;
+}): Promise<boolean> {
+  if (!config.accessControl.enabled) return true;
+  if (accessControlService.canPerformWrites(params.access.role)) return true;
+
+  await slackService.postEphemeral(
+    params.channelId,
+    params.slackUserId,
+    MEMBER_WRITE_DENIED_MESSAGE,
+    undefined,
+    params.threadTs
+  );
+  return false;
+}
+
+export function getAccessRole(access: AccessCheckResult): AccessRole | undefined {
+  return access.role;
 }

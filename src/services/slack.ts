@@ -18,6 +18,27 @@ import type { AdkPrd } from '../agents/schemas';
 
 const log = createLogger('slack');
 
+/** Human-readable Slack Web API errors (includes missing_scope → which scopes to add). */
+export function formatSlackApiError(err: unknown): string {
+  const data = (err as { data?: { error?: string; needed?: string } })?.data;
+  const base = (err as Error)?.message ?? String(err);
+
+  if (data?.error === 'missing_scope') {
+    const needed = data.needed ?? 'users:read.email, im:write, chat:write, pins:write';
+    return (
+      `Slack bot is missing OAuth scope(s): ${needed}. ` +
+      'In api.slack.com → your app → OAuth & Permissions → Bot Token Scopes → add them, ' +
+      'then Reinstall to Workspace. Store outreach needs at least users:read.email and im:write.'
+    );
+  }
+
+  if (data?.error) {
+    return `Slack API: ${data.error}${data.needed ? ` (add scope: ${data.needed})` : ''}`;
+  }
+
+  return base;
+}
+
 // Slack Web API: Tier 3 = 50+ req/min
 const rateLimiter = new RateLimiter(0.8); // 0.8 req/sec to stay safe
 
@@ -474,6 +495,74 @@ export class SlackService {
     await rateLimiter.acquire();
     await this.client.pins.add({ channel: channelId, timestamp: messageTs });
     log.info('Pinned message', { channelId, messageTs });
+  }
+
+  /**
+   * Resolve Slack user by workspace email (requires users:read.email).
+   */
+  async lookupUserByEmail(
+    email: string
+  ): Promise<{ id: string; name: string } | null> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return null;
+
+    try {
+      await rateLimiter.acquire();
+      const result = await withRetry(() =>
+        this.client.users.lookupByEmail({ email: normalized })
+      );
+      const user = result.user as { id?: string; real_name?: string; name?: string };
+      if (!user?.id) return null;
+      return {
+        id: user.id,
+        name: user.real_name ?? user.name ?? normalized,
+      };
+    } catch (err) {
+      const code = (err as { data?: { error?: string } })?.data?.error;
+      if (code === 'users_not_found') {
+        log.warn('Slack user not found for email', { email: normalized });
+        return null;
+      }
+      throw new Error(formatSlackApiError(err));
+    }
+  }
+
+  /**
+   * Open (or reuse) a DM channel with a user.
+   */
+  async openDirectMessageChannel(userId: string): Promise<string> {
+    await rateLimiter.acquire();
+    const result = await withRetry(() =>
+      this.client.conversations.open({ users: userId })
+    );
+    const channelId = (result.channel as { id?: string })?.id;
+    if (!channelId) {
+      throw new Error('conversations.open did not return a channel id');
+    }
+    return channelId;
+  }
+
+  /**
+   * Post a direct message to a user; returns channel + message ts for pinning.
+   */
+  async sendDirectMessage(
+    userId: string,
+    text: string,
+    blocks?: Record<string, unknown>[]
+  ): Promise<{ channelId: string; ts: string }> {
+    const channelId = await this.openDirectMessageChannel(userId);
+    await rateLimiter.acquire();
+    const res = await withRetry(() =>
+      this.client.chat.postMessage({
+        channel: channelId,
+        text,
+        blocks: blocks as never,
+        unfurl_links: false,
+      })
+    );
+    if (!res.ts) throw new Error('postMessage missing ts');
+    log.info('Sent direct message', { userId, channelId });
+    return { channelId, ts: res.ts };
   }
 
   async findPinnedMessageByMarker(

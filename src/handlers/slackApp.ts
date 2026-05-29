@@ -28,7 +28,7 @@ import { wantsPrd } from '../services/intent';
 import { ticketFlowService } from '../services/ticketFlow';
 import { groqAdvisorService } from '../services/groqAdvisor';
 import { registerCreateTicketHandlers } from './createTicketHandlers';
-import { enforceSlackAccess } from '../services/slackAccess';
+import { enforceSlackAccess, requireSlackWriteAccess } from '../services/slackAccess';
 
 const log = createLogger('slack-app');
 
@@ -136,18 +136,30 @@ export function createSlackApp(): App {
       const isThreadReply = Boolean(msg.thread_ts && msg.thread_ts !== msg.ts);
       const threadRootTs = msg.thread_ts ?? msg.ts;
 
+      let accessGate: Awaited<ReturnType<typeof enforceSlackAccess>> | null = null;
       if (msg.user && config.accessControl.enabled) {
-        const gate = await enforceSlackAccess({
+        accessGate = await enforceSlackAccess({
           slackUserId: msg.user,
           channelId,
           text,
           threadTs: isThreadReply ? threadRootTs : undefined,
         });
-        if (!gate.proceed) return;
+        if (!accessGate.proceed) return;
       }
 
       // /create-ticket thread: approve, reject, revise, or raise GitHub issue
       if (isThreadReply && msg.thread_ts && ticketFlowService.isEnabled()) {
+        if (
+          accessGate &&
+          !(await requireSlackWriteAccess({
+            channelId,
+            slackUserId: msg.user ?? '',
+            threadTs: threadRootTs,
+            access: accessGate.access,
+          }))
+        ) {
+          return;
+        }
         const consumed = await ticketFlowService.handleThreadReply({
           channelId,
           threadTs: msg.thread_ts,
@@ -252,6 +264,18 @@ export function createSlackApp(): App {
 
       // PRD-only: @MrSoul #prd or "write a PRD" without filing an issue
       if (botMentioned && wantsPrd(text) && !createIssue && prdService.shouldGenerateStandalone(text)) {
+        if (
+          accessGate &&
+          msg.user &&
+          !(await requireSlackWriteAccess({
+            channelId,
+            slackUserId: msg.user,
+            threadTs: threadRootTs,
+            access: accessGate.access,
+          }))
+        ) {
+          return;
+        }
           await slackLiveOps.startPipeline(channelId, threadRootTs, msg.ts);
           const collabContext = await slackService.getCollaborationThreadContext(
             channelId,
@@ -298,8 +322,12 @@ export function createSlackApp(): App {
         return;
       }
 
-      // Advisor: @bot questions, or "what is X working on" without @bot
-      if (intent.kind !== 'create_issue' && (botMentioned || intent.kind === 'developer_workload' || intent.kind === 'team_roster')) {
+      // Advisor: @bot questions, or "what is X working on" without @bot (members OK)
+      if (
+        intent.kind !== 'create_issue' &&
+        intent.kind !== 'task_suggestion' &&
+        (botMentioned || intent.kind === 'developer_workload' || intent.kind === 'team_roster')
+      ) {
         log.info('Advisor query', { intent: intent.kind, ts: msg.ts, isThreadReply });
         activityFeed.emitActivity({
           level: 'info',
@@ -354,7 +382,52 @@ export function createSlackApp(): App {
         return;
       }
 
-      // Build issue description (thread follow-up: merge parent context + "create issue …" body)
+      // Task assignment / ownership suggestions — admin & super admin only
+      if (intent.kind === 'task_suggestion' && (botMentioned || createIssue)) {
+        if (
+          accessGate &&
+          msg.user &&
+          !(await requireSlackWriteAccess({
+            channelId,
+            slackUserId: msg.user,
+            threadTs: threadRootTs,
+            access: accessGate.access,
+          }))
+        ) {
+          return;
+        }
+        log.info('Advisor task suggestion', { ts: msg.ts });
+        const threadAnchor = isThreadReply ? threadRootTs : msg.ts;
+        const userInfo = await slackService.getUserInfo(msg.user ?? '');
+        advisorService
+          .handleIntent(intent, {
+            channelId,
+            channelName,
+            messageTs: msg.ts,
+            userId: msg.user ?? 'unknown',
+            userName: userInfo.realName,
+            teamId: msg.team ?? config.slack.botToken.split('-')[0],
+            rawText: text,
+            threadTs: isThreadReply ? threadRootTs : undefined,
+          })
+          .then(reply => slackService.postAdvisorReply(channelId, threadAnchor, reply.text, reply.blocks))
+          .catch(() => undefined);
+        return;
+      }
+
+      if (
+        config.accessControl.enabled &&
+        msg.user &&
+        !(await requireSlackWriteAccess({
+          channelId,
+          slackUserId: msg.user,
+          threadTs: threadRootTs,
+          access: accessGate?.access ?? { allowed: true, role: 'super_admin' },
+        }))
+      ) {
+        return;
+      }
+
       let issueText = text;
       const createBody = extractCreateIssueBody(text);
       if (createBody !== null) {

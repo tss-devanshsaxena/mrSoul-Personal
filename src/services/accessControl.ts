@@ -2,6 +2,7 @@ import { config } from '../config';
 import { MrSoulAccessUser } from '../models';
 import type { AccessRole, AccessCheckResult } from '../types/access';
 import { normalizeEmail, type AccessAdminCommand } from '../utils/accessCommands';
+import { formatRoleCapabilities, canPerformWrites } from '../permissions/accessPermissions';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('access-control');
@@ -130,11 +131,12 @@ export class AccessControlService {
           `*Your MrSoul access*\n` +
           `• Email: \`${actorAccess.email}\`\n` +
           `• Role: *${formatRole(actorAccess.role)}*\n` +
+          `• ${formatRoleCapabilities(actorAccess.role)}\n` +
           (actorAccess.role === 'super_admin'
-            ? '• You can grant/revoke access and remove users from MrSoul.'
+            ? '• You can grant/revoke access (`grant access` / `revoke access`).'
             : actorAccess.role === 'admin'
-              ? '• You can grant access to new users (`member` or `admin`).'
-              : '• You can use MrSoul features (issues, /create-ticket, advisor).'),
+              ? '• You can grant access (`grant access email member|admin`).'
+              : ''),
       };
     }
 
@@ -272,6 +274,65 @@ export class AccessControlService {
   hasMinRole(userRole: AccessRole | undefined, required: AccessRole): boolean {
     if (!userRole) return false;
     return ROLE_RANK[userRole] >= ROLE_RANK[required];
+  }
+
+  canPerformWrites(role: AccessRole | undefined): boolean {
+    return canPerformWrites(role, this.isEnabled());
+  }
+
+  async listActiveUsers(): Promise<
+    Array<{ email: string; role: AccessRole; slackUserId?: string; grantedByEmail?: string }>
+  > {
+    const users = await MrSoulAccessUser.find({ active: true }).sort({ role: -1, email: 1 }).limit(200);
+    return users.map(u => ({
+      email: u.email,
+      role: u.role as AccessRole,
+      slackUserId: u.slackUserId,
+      grantedByEmail: u.grantedByEmail,
+    }));
+  }
+
+  async setUserRole(
+    email: string,
+    role: AccessRole,
+    grantedBy: string
+  ): Promise<{ email: string; role: AccessRole }> {
+    const targetEmail = normalizeEmail(email);
+    await MrSoulAccessUser.findOneAndUpdate(
+      { email: targetEmail },
+      {
+        email: targetEmail,
+        role,
+        grantedByEmail: grantedBy,
+        active: true,
+        revokedAt: undefined,
+        revokedByEmail: undefined,
+      },
+      { upsert: true, new: true }
+    );
+    return { email: targetEmail, role };
+  }
+
+  async revokeUser(email: string, revokedBy: string): Promise<boolean> {
+    const targetEmail = normalizeEmail(email);
+    const target = await MrSoulAccessUser.findOne({ email: targetEmail, active: true });
+    if (!target) return false;
+
+    if (target.role === 'super_admin') {
+      const superCount = await MrSoulAccessUser.countDocuments({
+        role: 'super_admin',
+        active: true,
+      });
+      if (superCount <= 1) {
+        throw new Error('Cannot remove the last super admin');
+      }
+    }
+
+    target.active = false;
+    target.revokedAt = new Date();
+    target.revokedByEmail = revokedBy;
+    await target.save();
+    return true;
   }
 }
 

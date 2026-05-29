@@ -9,6 +9,7 @@ import { accessControlService } from './services/accessControl';
 import { channelSetupService } from './services/channelSetup';
 import { activityFeed } from './services/activityFeed';
 import { slackLiveOps } from './services/slackLiveOps';
+import { storeOutreachScheduler } from './services/storeOutreachScheduler';
 
 const log = createLogger('main');
 
@@ -100,6 +101,8 @@ async function bootstrap(): Promise<void> {
 
   slackLiveOps.init();
 
+  await storeOutreachScheduler.start();
+
   log.info('🎯 CE-Tech Automation Platform fully operational', {
     monitoredChannels: config.slack.monitoredChannels,
     postGuidelinesOnStart: config.slack.postGuidelinesOnStart,
@@ -123,6 +126,7 @@ async function bootstrap(): Promise<void> {
   // ---- Graceful shutdown ----
   const shutdown = async (signal: string) => {
     log.info(`Received ${signal} — shutting down gracefully...`);
+    storeOutreachScheduler.stop();
     await slackApp.stop();
     httpServer.close();
     await db.disconnect();

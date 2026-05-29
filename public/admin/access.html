@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Slack bot access — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+</head>
+<body>
+  <div id="page-content">
+    <div id="alert" class="alert"></div>
+    <div class="card">
+      <div class="card-title">Role permissions</div>
+      <p class="hint">
+        <strong>Super Admin</strong> &amp; <strong>Admin</strong> — ask anything, create issues/PRDs, <code>/create-ticket</code>, assign work.<br />
+        <strong>Member</strong> — read-only: workload, team status, how-to questions. Cannot create tickets or PRDs.
+      </p>
+      <p class="hint">User’s Slack profile email must match the email below.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Grant / update access</div>
+        <label class="field-label" for="email">Work email</label>
+        <input id="email" type="email" placeholder="name@thesouledstore.com" />
+        <label class="field-label" for="role">Role</label>
+        <select id="role">
+          <option value="member">Member (read / ask only)</option>
+          <option value="admin">Admin (full bot features)</option>
+          <option value="super_admin">Super Admin (full + revoke)</option>
+        </select>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" id="saveBtn">Save access</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Slack command (optional)</div>
+        <p class="hint">In Slack, admins can also run:</p>
+        <p class="hint"><code>@MrSoul grant access email@thesouledstore.com member</code></p>
+        <p class="hint"><code>@MrSoul revoke access email@thesouledstore.com</code> (super admin only)</p>
+        <p class="hint"><code>@MrSoul my access</code></p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Active users</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Granted by</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    (async () => {
+      if (!await Admin.initShell('access', 'Slack bot access', 'Who can use MrSoul and what they can do')) return;
+      const alert = document.getElementById('alert');
+
+      const roleLabel = { super_admin: 'Super Admin', admin: 'Admin', member: 'Member' };
+
+      async function load() {
+        const json = await Admin.api('/access/users');
+        const tbody = document.getElementById('tableBody');
+        if (!json.accessControlEnabled) {
+          tbody.innerHTML = '<tr><td colspan="4" class="hint">' + Admin.escapeHtml(json.message || 'Access control off') + '</td></tr>';
+          return;
+        }
+        const data = json.data || [];
+        if (!data.length) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No users yet</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.map(u =>
+          '<tr>' +
+          '<td>' + Admin.escapeHtml(u.email) + '</td>' +
+          '<td><span class="pill on">' + Admin.escapeHtml(roleLabel[u.role] || u.role) + '</span></td>' +
+          '<td style="font-size:12px">' + Admin.escapeHtml(u.grantedByEmail || '—') + '</td>' +
+          '<td><button type="button" class="btn btn-secondary btn-sm" data-revoke="' + Admin.escapeHtml(u.email) + '">Remove</button></td>' +
+          '</tr>'
+        ).join('');
+
+        tbody.querySelectorAll('[data-revoke]').forEach(btn => {
+          btn.onclick = async () => {
+            if (!confirm('Remove access for ' + btn.dataset.revoke + '?')) return;
+            try {
+              await Admin.api('/access/users/' + encodeURIComponent(btn.dataset.revoke), { method: 'DELETE' });
+              Admin.toast(alert, 'Access removed', true);
+              await load();
+            } catch (e) { Admin.toast(alert, e.message, false); }
+          };
+        });
+      }
+
+      document.getElementById('saveBtn').onclick = async () => {
+        try {
+          await Admin.api('/access/users', {
+            method: 'PUT',
+            body: JSON.stringify({
+              email: document.getElementById('email').value.trim(),
+              role: document.getElementById('role').value,
+            }),
+          });
+          Admin.toast(alert, 'Access saved', true);
+          document.getElementById('email').value = '';
+          await load();
+        } catch (e) { Admin.toast(alert, e.message, false); }
+      };
+
+      try { await load(); } catch (e) { Admin.toast(alert, e.message, false); }
+    })();
+  </script>
+</body>
+</html>

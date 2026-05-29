@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Schedule — MrSoul Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/admin.css" />
+</head>
+<body>
+  <div id="page-content">
+    <div id="alert" class="alert"></div>
+    <div class="card">
+      <div class="card-title">Daily message schedule</div>
+      <p class="hint" id="scheduleHint">Loading…</p>
+      <label class="check-row"><input type="checkbox" id="enabled" /> Enable daily automated messages</label>
+      <div class="row3">
+        <div>
+          <label class="field-label" for="hour">Hour (0–23)</label>
+          <input id="hour" type="number" min="0" max="23" />
+        </div>
+        <div>
+          <label class="field-label" for="minute">Minute</label>
+          <input id="minute" type="number" min="0" max="59" />
+        </div>
+        <div>
+          <label class="field-label" for="timezone">Timezone</label>
+          <input id="timezone" type="text" />
+        </div>
+      </div>
+      <label class="check-row">
+        <input type="checkbox" id="oncePerDay" checked />
+        Limit to <strong>one message per store per day</strong> (recommended)
+      </label>
+      <p class="hint" id="oncePerDayHint" style="margin-top:-8px">
+        When off, every time the schedule runs, all active stores get a DM—even if they already received one today.
+      </p>
+      <label class="check-row"><input type="checkbox" id="pinMessages" checked /> Pin message in each DM</label>
+      <label class="field-label" for="messageTemplate">Message template</label>
+      <textarea id="messageTemplate"></textarea>
+      <p class="hint">
+        Variables:
+        <code>{{name}}</code> <code>{{storeId}}</code> <code>{{storeLocation}}</code>
+        <code>{{userName}}</code> <code>{{phone}}</code> <code>{{email}}</code>
+      </p>
+      <button type="button" class="btn btn-primary" id="saveBtn">Save schedule</button>
+    </div>
+  </div>
+  <script src="/admin/assets/admin.js"></script>
+  <script>
+    (async () => {
+      if (!await Admin.initShell('schedule', 'Message schedule', 'When MrSoul sends daily DMs to store owners')) return;
+      const alert = document.getElementById('alert');
+
+      async function load() {
+        const { data } = await Admin.storeApi('/config');
+        document.getElementById('enabled').checked = data.enabled;
+        document.getElementById('hour').value = data.hour;
+        document.getElementById('minute').value = data.minute;
+        document.getElementById('timezone').value = data.timezone;
+        document.getElementById('oncePerDay').checked = data.oncePerDay !== false;
+        document.getElementById('pinMessages').checked = data.pinMessages;
+        document.getElementById('messageTemplate').value = data.messageTemplate;
+        document.getElementById('scheduleHint').textContent =
+          data.nextRunHint + ' · ' + (data.sendLimitHint || '') + ' · cron: ' + data.cronExpression +
+          (data.lastRunSummary ? ' · Last: ' + data.lastRunSummary : '');
+      }
+
+      document.getElementById('saveBtn').onclick = async () => {
+        try {
+          await Admin.storeApi('/config', {
+            method: 'PUT',
+            body: JSON.stringify({
+              enabled: document.getElementById('enabled').checked,
+              hour: Number(document.getElementById('hour').value),
+              minute: Number(document.getElementById('minute').value),
+              timezone: document.getElementById('timezone').value,
+              oncePerDay: document.getElementById('oncePerDay').checked,
+              pinMessages: document.getElementById('pinMessages').checked,
+              messageTemplate: document.getElementById('messageTemplate').value,
+            }),
+          });
+          Admin.toast(alert, 'Schedule saved', true);
+          await load();
+        } catch (e) { Admin.toast(alert, e.message, false); }
+      };
+
+      try { await load(); } catch (e) { Admin.toast(alert, e.message, false); }
+    })();
+  </script>
+</body>
+</html>
