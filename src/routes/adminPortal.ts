@@ -1,4 +1,5 @@
-import express, { Router, Request, Response } from 'express';
+import express, { Router, Request, Response, NextFunction } from 'express';
+import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
 import { requireAdminAuth } from '../middleware/dashboardAuth';
@@ -14,7 +15,43 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('adminPortal');
 const adminRoot = path.join(process.cwd(), 'public', 'admin');
 
+const ADMIN_PAGES = [
+  'login.html',
+  'index.html',
+  'stores.html',
+  'upload.html',
+  'schedule.html',
+  'outreach.html',
+  'operations.html',
+  'access.html',
+] as const;
+
+if (!fs.existsSync(adminRoot)) {
+  log.warn('Admin UI folder missing — /admin pages will 404 until public/admin is deployed', {
+    adminRoot,
+  });
+} else {
+  log.info('Admin UI static root ready', { adminRoot });
+}
+
 export const adminPortalRouter = Router();
+
+function sendAdminPage(page: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const file = path.join(adminRoot, page);
+    if (!fs.existsSync(file)) {
+      next();
+      return;
+    }
+    res.sendFile(file, err => {
+      if (err) next(err);
+    });
+  };
+}
+
+for (const page of ADMIN_PAGES) {
+  adminPortalRouter.get(`/admin/${page}`, sendAdminPage(page));
+}
 
 adminPortalRouter.get('/dashboard/store-owners', (_req, res) => {
   res.redirect(302, '/admin/stores.html');

@@ -15,6 +15,7 @@ RUN npm ci --include=dev
 # Copy source and build
 COPY tsconfig.json ./
 COPY src/ ./src/
+COPY public/ ./public/
 RUN npm run build
 
 # ============================================================
@@ -32,8 +33,9 @@ COPY package*.json ./
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Copy built artifacts
+# Copy built artifacts + static admin/dashboard UI
 COPY --from=builder /app/dist ./dist
+COPY public ./public
 
 # Create log directory
 RUN mkdir -p /app/logs && chown -R cetech:nodejs /app/logs
