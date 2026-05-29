@@ -1,0 +1,53 @@
+display_information:
+  name: CE-Tech Automation
+  description: Internal issue routing and engineering workflow automation
+  background_color: "#1a1a2e"
+  long_description: "Monitors Slack channels for hashtags like #refund, #payment, #order, and #inventory. Automatically creates GitHub issues, assigns the responsible developer, posts a formatted tracking thread, and syncs status updates when PRs are merged or issues are closed."
+
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: false
+  bot_user:
+    display_name: CE-Tech Automation
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      - channels:history      # Read messages in public channels
+      - channels:read         # Get channel names/info
+      - chat:write            # Post messages and threads
+      - chat:write.public     # Post to public channels without joining
+      - groups:history        # Read messages in private channels
+      - groups:read           # Get private channel info
+      - im:history            # Read DM messages (for testing)
+      - users:read            # Get user display names
+      - users:read.email      # Optional: get user emails
+
+settings:
+  event_subscriptions:
+    request_url: https://YOUR_DOMAIN/slack/events   # Update with real URL
+    bot_events:
+      - message.channels      # Messages in public channels
+      - message.groups        # Messages in private channels
+      - app_home_opened       # When a user opens the app home tab
+
+  interactivity:
+    is_enabled: false         # No interactive components yet
+
+  org_deploy_enabled: false
+  socket_mode_enabled: true   # Set to false in production with HTTP mode
+  token_rotation_enabled: false
+
+# ============================================================
+# SETUP INSTRUCTIONS
+# ============================================================
+# 1. Go to https://api.slack.com/apps
+# 2. Create New App → From an app manifest
+# 3. Paste this YAML
+# 4. Update request_url with your real server URL
+# 5. Install to workspace
+# 6. Copy Bot Token → SLACK_BOT_TOKEN in .env
+# 7. Copy Signing Secret → SLACK_SIGNING_SECRET in .env
+# 8. (Socket Mode) Generate App Token → SLACK_APP_TOKEN in .env

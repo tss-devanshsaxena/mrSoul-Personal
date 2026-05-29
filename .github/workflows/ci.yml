@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+        env:
+          SLACK_BOT_TOKEN: xoxb-test
+          SLACK_SIGNING_SECRET: test-secret
+          GITHUB_TOKEN: ghp_test_token_placeholder
+          GITHUB_OWNER: test-org
+          GITHUB_REPO: test-repo
+          MONGODB_URI: mongodb://127.0.0.1:27017/ce-tech-automation-test
+          NODE_ENV: test

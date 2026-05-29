@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MrSoul — Live Operations</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --ok: #3fb950;
+      --warn: #d29922;
+      --err: #f85149;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      background: var(--surface);
+    }
+    header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+    header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .live {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--err);
+    }
+    .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    main {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 0;
+      min-height: calc(100vh - 72px);
+    }
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+      aside, .issues-panel { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+    aside, .issues-panel {
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow: auto;
+    }
+    .feed {
+      padding: 16px 20px;
+      overflow: auto;
+      max-height: calc(100vh - 72px);
+    }
+    h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .stat label { font-size: 11px; color: var(--muted); display: block; }
+    .stat strong { font-size: 20px; font-weight: 600; margin-top: 4px; }
+    .meta-list { font-size: 12px; color: var(--muted); }
+    .meta-list div { margin-bottom: 8px; }
+    .meta-list span { color: var(--text); }
+    .event {
+      border-left: 3px solid var(--border);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: none; }
+    }
+    .event.info { border-left-color: var(--accent); }
+    .event.success { border-left-color: var(--ok); }
+    .event.warn { border-left-color: var(--warn); }
+    .event.error { border-left-color: var(--err); }
+    .event-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .event time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .event p { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .event pre.meta {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      margin-top: 8px;
+      padding: 8px;
+      background: var(--bg);
+      border-radius: 6px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .event .tag {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-top: 6px;
+      font-family: var(--mono);
+    }
+    .issue-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      background: var(--bg);
+    }
+    .issue-card a { color: var(--accent); text-decoration: none; }
+    .issue-card a:hover { text-decoration: underline; }
+    .pill {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      margin-right: 4px;
+      color: var(--muted);
+    }
+    .empty { font-size: 13px; color: var(--muted); padding: 24px 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>MrSoul — Live Operations</h1>
+      <p>TSS issue automation · real-time activity from <code>npm run dev</code> · also open <strong>mrsoul-ops</strong> canvas in Cursor</p>
+    </div>
+    <div class="live">
+      <span class="dot" id="connDot"></span>
+      <span id="connLabel">Connecting…</span>
+    </div>
+  </header>
+  <main>
+    <aside>
+      <h2>Platform</h2>
+      <div class="stat-grid" id="stats"></div>
+      <h2>Configuration</h2>
+      <div class="meta-list" id="meta"></div>
+      <h2 style="margin-top:20px">Routing</h2>
+      <div id="routing" class="meta-list"></div>
+    </aside>
+    <section class="feed">
+      <h2>Live activity</h2>
+      <div id="feed"></div>
+    </section>
+    <div class="issues-panel">
+      <h2>Recent issues</h2>
+      <div id="issues"></div>
+    </div>
+  </main>
+  <script>
+    const feedEl = document.getElementById('feed');
+    const statsEl = document.getElementById('stats');
+    const metaEl = document.getElementById('meta');
+    const routingEl = document.getElementById('routing');
+    const issuesEl = document.getElementById('issues');
+    const connDot = document.getElementById('connDot');
+    const connLabel = document.getElementById('connLabel');
+
+    const seen = new Set();
+    const MAX_UI = 80;
+
+    function fmtTime(iso) {
+      try {
+        return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } catch { return iso; }
+    }
+
+    function renderEvent(e, prepend) {
+      if (seen.has(e.id)) return;
+      seen.add(e.id);
+      const div = document.createElement('div');
+      div.className = 'event ' + (e.level || 'info');
+      const metaBlock = e.meta && Object.keys(e.meta).length
+        ? '<pre class="meta">' + escapeHtml(JSON.stringify(e.meta, null, 2)) + '</pre>'
+        : '';
+      div.innerHTML =
+        '<div class="event-head"><span>' + escapeHtml(e.title) + '</span><time>' + fmtTime(e.ts) + '</time></div>' +
+        (e.detail ? '<p>' + escapeHtml(e.detail) + '</p>' : '') +
+        metaBlock +
+        '<div class="tag">' + escapeHtml(e.source) + ' · ' + escapeHtml(e.level || 'info') + '</div>';
+      if (prepend && feedEl.firstChild) feedEl.insertBefore(div, feedEl.firstChild);
+      else feedEl.appendChild(div);
+      while (feedEl.children.length > MAX_UI) feedEl.removeChild(feedEl.lastChild);
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function renderSnapshot(data) {
+      const a = data.activity || {};
+      const levels = a.countsByLevel || {};
+      statsEl.innerHTML =
+        '<div class="stat"><label>Events</label><strong>' + (a.count || 0) + '</strong></div>' +
+        '<div class="stat"><label>Errors</label><strong>' + (levels.error || 0) + '</strong></div>' +
+        '<div class="stat"><label>Warnings</label><strong>' + (levels.warn || 0) + '</strong></div>' +
+        '<div class="stat"><label>Uptime</label><strong>' + (data.uptimeSec || 0) + 's</strong></div>';
+
+      metaEl.innerHTML =
+        '<div><span>Env</span> · ' + escapeHtml(data.env) + '</div>' +
+        '<div><span>ADK</span> · ' + (data.adkEnabled ? 'on' : 'off') + '</div>' +
+        '<div><span>Repo</span> · ' + escapeHtml(data.githubRepo || '') + '</div>' +
+        '<div><span>Project</span> · ' + escapeHtml(data.project || 'not configured') + '</div>' +
+        '<div><span>Channels</span> · ' + escapeHtml((data.monitoredChannels || []).join(', ')) + '</div>';
+
+      const routes = data.routing || [];
+      routingEl.innerHTML = routes.length
+        ? routes.map(r => '<div><span>' + escapeHtml(r.tag) + '</span> → ' + escapeHtml(r.owner) + ' <code>' + escapeHtml(r.github) + '</code></div>').join('')
+        : '<div>No active hashtag mappings. Add via <code>PUT /api/routing</code></div>';
+
+      const issues = data.recentIssues || [];
+      issuesEl.innerHTML = issues.length
+        ? issues.map(i => {
+            const gh = i.github ? '<a href="' + escapeHtml(i.github) + '" target="_blank">#' + (i.github.split('/').pop() || '') + '</a>' : '—';
+            return '<div class="issue-card">' +
+              '<div><span class="pill">' + escapeHtml(i.status) + '</span><span class="pill">' + escapeHtml(i.priority) + '</span></div>' +
+              '<div style="margin:6px 0">' + escapeHtml(i.preview || '') + '</div>' +
+              '<div>' + gh + ' · @' + escapeHtml(i.assignee || 'unassigned') + '</div></div>';
+          }).join('')
+        : '<div class="empty">No issues yet — post in Slack with hashtags or @MrSoul</div>';
+
+      if (!feedEl.dataset.hydrated) {
+        feedEl.dataset.hydrated = '1';
+        (a.events || []).slice().reverse().forEach(e => renderEvent(e, false));
+      }
+    }
+
+    async function loadSnapshot() {
+      const res = await fetch('/dashboard/api/snapshot');
+      const json = await res.json();
+      if (json.success) renderSnapshot(json.data);
+    }
+
+    function connectStream() {
+      const es = new EventSource('/dashboard/api/stream');
+      es.addEventListener('open', () => {
+        connDot.classList.add('on');
+        connLabel.textContent = 'Live';
+      });
+      es.addEventListener('activity', ev => {
+        try { renderEvent(JSON.parse(ev.data), true); loadSnapshot(); } catch (_) {}
+      });
+      es.onerror = () => {
+        connDot.classList.remove('on');
+        connLabel.textContent = 'Reconnecting…';
+      };
+    }
+
+    loadSnapshot();
+    connectStream();
+    setInterval(loadSnapshot, 15000);
+  </script>
+</body>
+</html>
